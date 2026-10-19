@@ -65,6 +65,44 @@ function toggleClickThrough() {
 }
 
 // Update UI is a separate local window. It never injects JavaScript into IslePilot.
+let updateButtonWindow = null;
+const UPDATE_BUTTON_WIDTH = 164;
+const UPDATE_BUTTON_HEIGHT = 40;
+function updateButtonHtml() {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+  <style>*{box-sizing:border-box}html,body{margin:0;background:transparent;overflow:hidden}button{width:100%;height:100%;border:1px solid #78e9a0;border-radius:9px;background:#207a48;color:white;font:700 13px system-ui;cursor:pointer;box-shadow:0 2px 8px #0008}button:hover{background:#2b995b}button:disabled{opacity:.85;cursor:wait}</style></head>
+  <body><button id="update" type="button">Update Available</button>
+  <script>const {ipcRenderer}=require('electron');const b=document.getElementById('update');
+  ipcRenderer.on('overlay-update-state',(_event,state)=>{b.textContent=state==='downloaded'?'Restart & Install':state==='downloading'?'Downloading...':'Update Available';b.disabled=state==='downloading';});
+  b.addEventListener('click',()=>ipcRenderer.send('overlay-update-click'));
+  ipcRenderer.send('overlay-update-ready');</script></body></html>`;
+}
+function positionUpdateButton() {
+  if (!win || win.isDestroyed() || !updateButtonWindow || updateButtonWindow.isDestroyed()) return;
+  const bounds = win.getBounds();
+  updateButtonWindow.setPosition(bounds.x + bounds.width - UPDATE_BUTTON_WIDTH - 10, bounds.y + 22);
+}
+function refreshUpdateButton() {
+  const visible = ['available', 'downloading', 'downloaded'].includes(updateStatus);
+  if (!visible || !win || win.isDestroyed()) {
+    if (updateButtonWindow && !updateButtonWindow.isDestroyed()) updateButtonWindow.close();
+    return;
+  }
+  if (!updateButtonWindow || updateButtonWindow.isDestroyed()) {
+    updateButtonWindow = new BrowserWindow({
+      width: UPDATE_BUTTON_WIDTH, height: UPDATE_BUTTON_HEIGHT, show: false,
+      parent: win, frame: false, transparent: true, resizable: false,
+      movable: false, focusable: true, skipTaskbar: true, hasShadow: false,
+      webPreferences: {nodeIntegration: true, contextIsolation: false, sandbox: false, devTools: false}
+    });
+    updateButtonWindow.setMenu(null);
+    updateButtonWindow.on('closed', () => { updateButtonWindow = null; });
+    updateButtonWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(updateButtonHtml())).catch(console.error);
+  }
+  positionUpdateButton();
+  if (!updateButtonWindow.isVisible()) updateButtonWindow.showInactive();
+  if (!updateButtonWindow.webContents.isLoading()) updateButtonWindow.webContents.send('overlay-update-state', updateStatus);
+}
 let updateWindow = null;
 function updateWindowHtml() {
   return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
@@ -112,6 +150,7 @@ function showUpdateNotice() {
   // A native Windows menu is available even when the website is loaded remotely.
   const template = buildMenu();
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  refreshUpdateButton();
 }
 function checkForUpdates() {
   if (!app.isPackaged || process.platform !== 'win32') return;
@@ -132,6 +171,7 @@ function configureUpdater() {
   });
   autoUpdater.on('download-progress', progress => {
     updateStatus = 'downloading';
+    refreshUpdateButton();
     if (updateWindow && !updateWindow.isDestroyed()) {
       updateWindow.webContents.send('update-state', {
         message: `Downloading: ${Math.round(progress.percent)}%`, button: 'Downloading...', disabled: true
@@ -145,7 +185,7 @@ function configureUpdater() {
   });
   autoUpdater.on('error', error => {
     console.error('Auto-update error:', error);
-    if (updateStatus === 'downloading') { updateStatus = 'error'; sendUpdateState(); }
+    if (updateStatus === 'downloading') { updateStatus = 'error'; sendUpdateState(); refreshUpdateButton(); }
   });
   checkForUpdates();
   updateCheckTimer = setInterval(checkForUpdates, 60 * 60 * 1000);
@@ -154,9 +194,10 @@ function updateAction() {
   if (updateStatus === 'available') {
     updateStatus = 'downloading';
     sendUpdateState();
+    refreshUpdateButton();
     autoUpdater.downloadUpdate().catch(error => {
       console.error('Download failed:', error);
-      updateStatus = 'error'; sendUpdateState();
+      updateStatus = 'error'; sendUpdateState(); refreshUpdateButton();
     });
   } else if (updateStatus === 'downloaded') {
     quitting = true;
@@ -211,8 +252,8 @@ function createWindow() {
   win.on('show', enforceAlwaysOnTop);
   win.on('restore', enforceAlwaysOnTop);
   win.on('focus', enforceAlwaysOnTop);
-  win.on('resized', saveWindowBounds);
-  win.on('moved', saveWindowBounds);
+  win.on('resized', () => { saveWindowBounds(); positionUpdateButton(); });
+  win.on('moved', () => { saveWindowBounds(); positionUpdateButton(); });
   win.on('close', saveWindowBounds);
   // A transparent 16px strip at the top lets players drag the frameless overlay.
   // It is recreated after navigation so it works on every website page.
@@ -280,6 +321,14 @@ else {
   app.whenReady().then(() => {
     const ses = session.fromPartition('persist:extinction-pending');
     ses.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+    ipcMain.on('overlay-update-ready', event => {
+      if (updateButtonWindow && event.sender === updateButtonWindow.webContents) refreshUpdateButton();
+    });
+    ipcMain.on('overlay-update-click', event => {
+      if (updateButtonWindow && event.sender === updateButtonWindow.webContents) {
+        if (updateStatus === 'available' || updateStatus === 'downloaded') showUpdateWindow();
+      }
+    });
     ipcMain.on('update-state-request', event => {
       if (updateWindow && event.sender === updateWindow.webContents) sendUpdateState();
     });
