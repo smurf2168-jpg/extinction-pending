@@ -1,4 +1,3 @@
-
 name: Build Windows Overlay
 
 on:
@@ -9,29 +8,26 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-
     defaults:
       run:
         working-directory: ./extinction-pending-official-overlay
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-
       - name: Install dependencies
         run: npm install
-
       - name: Build Windows app
         run: npm run dist
-
-      - name: Upload Windows installer
+      - name: Upload Windows installer and update metadata
         uses: actions/upload-artifact@v4
         with:
           name: Extinction-Pending-Windows
-          path: extinction-pending-official-overlay/dist/*.exe
+          path: |
+            extinction-pending-official-overlay/dist/*.exe
+            extinction-pending-official-overlay/dist/*.blockmap
+            extinction-pending-official-overlay/dist/latest.yml
           if-no-files-found: error
