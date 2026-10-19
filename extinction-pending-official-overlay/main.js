@@ -1,6 +1,9 @@
 
 'use strict';
 
+const fs = require('node:fs');
+const path = require('node:path');
+
 const {
   app,
   BrowserWindow,
@@ -8,11 +11,15 @@ const {
   shell,
   Menu,
   dialog,
-  session
+  session,
+  screen
 } = require('electron');
 
 const BASE = 'https://extinction-pending.islepilot.eu';
 const HOME = new URL(BASE).origin;
+
+const MIN_WIDTH = 250;
+const MIN_HEIGHT = 180;
 
 let win = null;
 let clickThrough = false;
@@ -32,9 +39,74 @@ function external(url) {
   }
 }
 
-function navigate(path) {
+function navigate(route) {
   if (win && !win.isDestroyed()) {
-    win.loadURL(new URL(path, BASE).href).catch(() => {});
+    win.loadURL(new URL(route, BASE).href).catch(() => {});
+  }
+}
+
+// Save window size and position.
+function settingsFile() {
+  return path.join(app.getPath('userData'), 'window-state.json');
+}
+
+function getSavedBounds() {
+  const fallback = {
+    width: 900,
+    height: 650
+  };
+
+  try {
+    const saved = JSON.parse(
+      fs.readFileSync(settingsFile(), 'utf8')
+    );
+
+    if (
+      !Number.isInteger(saved.width) ||
+      !Number.isInteger(saved.height) ||
+      !Number.isInteger(saved.x) ||
+      !Number.isInteger(saved.y)
+    ) {
+      return fallback;
+    }
+
+    const bounds = {
+      x: saved.x,
+      y: saved.y,
+      width: Math.max(MIN_WIDTH, saved.width),
+      height: Math.max(MIN_HEIGHT, saved.height)
+    };
+
+    // Keep the window on a connected monitor.
+    const visible = screen.getAllDisplays().some(display => {
+      const area = display.workArea;
+
+      return (
+        bounds.x < area.x + area.width &&
+        bounds.x + bounds.width > area.x &&
+        bounds.y < area.y + area.height &&
+        bounds.y + bounds.height > area.y
+      );
+    });
+
+    return visible ? bounds : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveWindowBounds() {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized() || win.isMaximized()) return;
+
+  try {
+    fs.writeFileSync(
+      settingsFile(),
+      JSON.stringify(win.getBounds(), null, 2),
+      'utf8'
+    );
+  } catch (error) {
+    console.error('Could not save window position:', error);
   }
 }
 
@@ -44,7 +116,6 @@ function enforceAlwaysOnTop() {
 
   win.setAlwaysOnTop(true, 'screen-saver');
 
-  // Supported platforms may show the window on all workspaces.
   if (process.platform !== 'win32') {
     win.setVisibleOnAllWorkspaces(true, {
       visibleOnFullScreen: true
@@ -52,7 +123,7 @@ function enforceAlwaysOnTop() {
   }
 }
 
-// F8 is the only normal visibility toggle.
+// Press F8 to hide or show the overlay.
 function toggleVisibility() {
   if (!win || win.isDestroyed()) return;
 
@@ -71,6 +142,7 @@ function toggleVisibility() {
   win.focus();
 }
 
+// Toggle mouse click-through.
 function toggleClickThrough() {
   if (!win || win.isDestroyed()) return;
 
@@ -85,10 +157,11 @@ function createWindow() {
   win = new BrowserWindow({
     title: 'Extinction Pending Overlay',
 
-    width: 1250,
-    height: 820,
-    minWidth: 640,
-    minHeight: 420,
+    ...getSavedBounds(),
+
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
+    resizable: true,
 
     show: false,
     backgroundColor: '#101010',
@@ -117,14 +190,16 @@ function createWindow() {
     }
   });
 
-  // Reassert the always-on-top level when returning to the overlay.
   win.on('show', enforceAlwaysOnTop);
-
   win.on('restore', enforceAlwaysOnTop);
-
   win.on('focus', enforceAlwaysOnTop);
 
-  // Keep the window available rather than minimizing it.
+  // Remember the latest window size and position.
+  win.on('resized', saveWindowBounds);
+  win.on('moved', saveWindowBounds);
+  win.on('close', saveWindowBounds);
+
+  // Prevent accidental minimizing.
   win.on('minimize', event => {
     if (!quitting && win && !win.isDestroyed()) {
       event.preventDefault();
@@ -155,11 +230,15 @@ function createWindow() {
   });
 
   win.webContents.on('will-navigate', (event, url) => {
-    if (!isWebUrl(url)) event.preventDefault();
+    if (!isWebUrl(url)) {
+      event.preventDefault();
+    }
   });
 
   win.webContents.on('will-redirect', (event, url) => {
-    if (!isWebUrl(url)) event.preventDefault();
+    if (!isWebUrl(url)) {
+      event.preventDefault();
+    }
   });
 
   win.on('closed', () => {
@@ -266,6 +345,7 @@ if (!app.requestSingleInstanceLock()) {
         clickThrough = false;
         win.setIgnoreMouseEvents(false);
       }
+
       win.show();
       enforceAlwaysOnTop();
       win.focus();
@@ -309,5 +389,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (!win) createWindow();
+  if (!win) {
+    createWindow();
+  }
 });
