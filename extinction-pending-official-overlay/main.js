@@ -197,6 +197,7 @@ function buildMenu() {
 function createWindow() {
   win = new BrowserWindow({
     title: 'Extinction Pending Overlay', ...getSavedBounds(),
+    frame: false, thickFrame: true,
     minWidth: MIN_WIDTH, minHeight: MIN_HEIGHT, resizable: true,
     show: false, backgroundColor: '#101010', autoHideMenuBar: false,
     alwaysOnTop: true, fullscreenable: false, skipTaskbar: false,
@@ -230,7 +231,12 @@ function createWindow() {
   win.webContents.on('will-navigate', (event, url) => { if (!isWebUrl(url)) event.preventDefault(); });
   win.webContents.on('will-redirect', (event, url) => { if (!isWebUrl(url)) event.preventDefault(); });
   win.on('closed', () => { win = null; });
-  Menu.setApplicationMenu(Menu.buildFromTemplate(buildMenu()));
+  // Frameless windows have no native menu bar; show the menu on right-click.
+  Menu.setApplicationMenu(null);
+  win.webContents.on('context-menu', () => {
+    const template = buildMenu();
+    Menu.buildFromTemplate(template).popup({ window: win });
+  });
 }
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
@@ -254,6 +260,16 @@ else {
       dialog.showMessageBox({ type: 'warning', message: 'F8 is already in use by another application. Use Overlay → Show / hide instead.' });
     }
     globalShortcut.register('CommandOrControl+Shift+C', toggleClickThrough);
+    // Move the frameless window with Ctrl+Alt+arrow keys.
+    const steps = { Up: [0, -30], Down: [0, 30], Left: [-30, 0], Right: [30, 0] };
+    for (const [key, [dx, dy]] of Object.entries(steps)) {
+      globalShortcut.register('CommandOrControl+Alt+' + key, () => {
+        if (!win || win.isDestroyed()) return;
+        const [x, y] = win.getPosition();
+        win.setPosition(x + dx, y + dy);
+        saveWindowBounds();
+      });
+    }
     configureUpdater();
   });
 }
