@@ -1,14 +1,12 @@
+
 {
   "name": "extinction-pending-overlay",
-  "version": "1.0.2",
+  "version": "1.0.1",
   "description": "Official Extinction Pending Overlay",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win nsis portable"
-  },
-  "dependencies": {
-    "electron-updater": "^6.6.2"
   },
   "devDependencies": {
     "electron": "^35.0.0",
@@ -25,23 +23,12 @@
       "package.json",
       "icon.ico"
     ],
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "smurf2168-jpg",
-        "repo": "extinction-pending"
-      }
-    ],
     "win": {
       "icon": "icon.ico",
       "target": [
         "nsis",
         "portable"
       ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
     }
   }
 }
