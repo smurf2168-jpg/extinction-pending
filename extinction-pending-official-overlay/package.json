@@ -1,7 +1,7 @@
 
 {
   "name": "extinction-pending-overlay",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Official Extinction Pending Overlay",
   "main": "main.js",
   "scripts": {
@@ -18,17 +18,17 @@
     "directories": {
       "output": "dist"
     },
-  "files": [
-  "main.js",
-  "package.json",
-  "icon.ico"
-]
+    "files": [
+      "main.js",
+      "package.json",
+      "icon.ico"
+    ],
     "win": {
-  "icon": "icon.ico",
-  "target": [
-    "nsis",
-    "portable"
-  ]
-}
+      "icon": "icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
   }
 }
