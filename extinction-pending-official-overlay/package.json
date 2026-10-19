@@ -1,12 +1,19 @@
 
 {
   "name": "extinction-pending-overlay",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Official Extinction Pending Overlay",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/smurf2168-jpg/extinction-pending.git"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win nsis portable"
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
   },
   "devDependencies": {
     "electron": "^35.0.0",
@@ -22,6 +29,13 @@
       "main.js",
       "package.json",
       "icon.ico"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "smurf2168-jpg",
+        "repo": "extinction-pending"
+      }
     ],
     "win": {
       "icon": "icon.ico",
