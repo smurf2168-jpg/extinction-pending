@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ./extinction-pending-official-overlay
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
