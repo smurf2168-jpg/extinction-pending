@@ -1,0 +1,26 @@
+{
+  "name": "extinction-pending-overlay",
+  "productName": "Extinction Pending Overlay",
+  "version": "1.0.0",
+  "description": "Community desktop overlay for the Extinction Pending IslePilot server",
+  "main": "main.js",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis portable --x64",
+    "dist:dir": "electron-builder --dir --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "eu.islepilot.extinctionpending.overlay",
+    "productName": "Extinction Pending Overlay",
+    "asar": true,
+    "files": ["main.js", "package.json"],
+    "directories": { "output": "dist" },
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }] },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true, "createStartMenuShortcut": true }
+  }
+}
