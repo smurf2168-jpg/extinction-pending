@@ -214,6 +214,22 @@ function createWindow() {
   win.on('resized', saveWindowBounds);
   win.on('moved', saveWindowBounds);
   win.on('close', saveWindowBounds);
+  // A transparent 16px strip at the top lets players drag the frameless overlay.
+  // It is recreated after navigation so it works on every website page.
+  win.webContents.on('did-finish-load', () => {
+    if (!win || win.isDestroyed()) return;
+    win.webContents.insertCSS(`
+      html::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        height: 16px;
+        z-index: 2147483647;
+        background: transparent;
+        -webkit-app-region: drag;
+      }
+    `).catch(error => console.error('Could not add drag strip:', error));
+  });
   win.on('minimize', event => { if (!quitting && win && !win.isDestroyed()) event.preventDefault(); });
   win.loadURL(BASE).catch(() => {
     if (win && !win.isDestroyed()) dialog.showMessageBox(win, {
