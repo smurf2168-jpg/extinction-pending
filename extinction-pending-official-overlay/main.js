@@ -219,6 +219,21 @@ function createWindow() {
   win.webContents.on('did-finish-load', () => {
     if (!win || win.isDestroyed()) return;
     win.webContents.insertCSS(`
+      /* Hide the right scrollbar until the pointer is over the overlay. */
+      html::-webkit-scrollbar, body::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+      }
+      html:hover::-webkit-scrollbar, html:hover body::-webkit-scrollbar {
+        width: 8px;
+      }
+      html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb {
+        background: rgba(155, 165, 170, 0.65);
+        border-radius: 8px;
+      }
+      html::-webkit-scrollbar-track, body::-webkit-scrollbar-track {
+        background: transparent;
+      }
       html::before {
         content: '';
         position: fixed;
